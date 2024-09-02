@@ -15,24 +15,44 @@ pub mod travel_insurance {
         policy.amount = amount;
         policy.event_id = event_id;
         policy.owner = ctx.accounts.user.key();
-        policy.is_claimed = false; // Initialize as not claimed
-        policy.claimable_after = Clock::get()?.unix_timestamp + 60; // Claimable after 60 seconds
+        policy.is_claimed = false; // initially false!
+
+        // unique claimId based on the owner's public key and current timestamp
+        let clock = Clock::get()?;
+        policy.claim_id = [policy.owner.to_bytes(), clock.unix_timestamp.to_le_bytes()].concat();
+
+        policy.claimable_after = clock.unix_timestamp + 60; // claimable after 60 seconds
+
         Ok(())
     }
 
-    pub fn claim_policy(ctx: Context<ClaimPolicy>) -> Result<()> {
+    // Claiming the policy
+    pub fn claim_policy(ctx: Context<ClaimPolicy>, claim_id: Vec<u8>) -> Result<()> {
         let policy = &mut ctx.accounts.policy;
+
+        // ensure the provided claim_id matches the policy's claim_id
+        if claim_id != policy.claim_id {
+            return Err(ErrorCode::InvalidClaimId.into());
+        }
+
         let clock = Clock::get()?;
 
+        if policy.is_claimed {
+            return Err(ErrorCode::AlreadyClaimed.into());
+        }
+
+        // imp! ensure the policy is claimable -> (the event has occurred or the time has passed)
         if clock.unix_timestamp > policy.claimable_after {
             let user = &mut ctx.accounts.user;
             let payout_amount = policy.amount;
 
+            // checking the policy account has enough funds to pay out the insurance
             let policy_balance = policy.to_account_info().lamports();
             if payout_amount > policy_balance {
                 return Err(ErrorCode::InsufficientFunds.into());
             }
 
+            // transfer the payout amount to the user
             invoke(
                 &system_instruction::transfer(
                     &policy.to_account_info().key(),
@@ -46,6 +66,7 @@ pub mod travel_insurance {
                 ],
             )?;
 
+            // mark the policy as claimed
             policy.is_claimed = true;
         } else {
             return Err(ErrorCode::NotYetClaimable.into());
@@ -57,7 +78,7 @@ pub mod travel_insurance {
 
 #[derive(Accounts)]
 pub struct PurchasePolicy<'info> {
-    #[account(init, payer = user, space = 8 + 8 + 64 + 32 + 1 + 8)]
+    #[account(init, payer = user, space = 8 + 8 + 64 + 32 + 1 + 8 + 32)] // update space to accommodate claim_id
     pub policy: Account<'info, Policy>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -80,6 +101,7 @@ pub struct Policy {
     pub owner: Pubkey,
     pub is_claimed: bool,
     pub claimable_after: i64,
+    pub claim_id: Vec<u8>, // Store claim_id as a variable-length vector of bytes
 }
 
 #[error_code]
@@ -88,4 +110,8 @@ pub enum ErrorCode {
     NotYetClaimable,
     #[msg("Insufficient funds in policy account.")]
     InsufficientFunds,
+    #[msg("The claim ID is invalid.")]
+    InvalidClaimId,
+    #[msg("The policy has already been claimed.")]
+    AlreadyClaimed,
 }
