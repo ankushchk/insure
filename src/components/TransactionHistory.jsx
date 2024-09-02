@@ -6,10 +6,12 @@ function TransactionHistory() {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
   const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchTransactions = async () => {
       if (publicKey) {
+        setLoading(true);
         try {
           const transactionSignatures =
             await connection.getSignaturesForAddress(publicKey);
@@ -28,6 +30,9 @@ function TransactionHistory() {
           setTransactions(txs);
         } catch (error) {
           console.error("Error fetching transactions:", error);
+          alert("Error fetching transactions:", error);
+        } finally {
+          setLoading(false);
         }
       }
     };
@@ -38,15 +43,19 @@ function TransactionHistory() {
   return (
     <div>
       <h2>Transaction History</h2>
-      <ul>
-        {transactions.map((tx, index) => (
-          <li key={index}>
-            <p>Signature: {tx.signature}</p>
-            <p>Date: {tx.date}</p>
-            <p>Amount: {tx.amount / 1_000_000_000} SOL</p>
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <p>Loading Transactions.....</p>
+      ) : (
+        <ul>
+          {transactions.map((tx, index) => (
+            <li key={index}>
+              <p>Signature: {tx.signature}</p>
+              <p>Date: {tx.date}</p>
+              <p>Amount: {tx.amount / 1_000_000_000} SOL</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
