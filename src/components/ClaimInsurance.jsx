@@ -7,7 +7,6 @@ import {
 } from "@solana/web3.js";
 import "../App.css";
 
-
 function ClaimInsurance() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
@@ -33,15 +32,17 @@ function ClaimInsurance() {
         "AxwofCewZLxn7TJPX1KQv8FA6XEqanC9WwC2q35TnYLx"
       );
 
+      // Convert claimId to Uint8Array directly
+      const claimIdBytes = new TextEncoder().encode(claimId);
+      const instructionData = new Uint8Array([1, ...claimIdBytes]);
+
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: publicKey, isSigner: true, isWritable: true },
           { pubkey: programId, isSigner: false, isWritable: true },
         ],
         programId,
-        data: Buffer.from(
-          Uint8Array.of(1, ...new TextEncoder().encode(claimId))
-        ),
+        data: instructionData,
       });
 
       const transaction = new Transaction().add(instruction);
@@ -58,8 +59,10 @@ function ClaimInsurance() {
   return (
     <div>
       <h2>Claim Insurance</h2>
+      <label htmlFor="claimId">Claim ID:</label>
       <input
         type="text"
+        id="claimId"
         placeholder="Enter Claim ID"
         value={claimId}
         onChange={handleChange}

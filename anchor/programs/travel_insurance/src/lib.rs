@@ -19,7 +19,12 @@ pub mod travel_insurance {
 
         // unique claimId based on the owner's public key and current timestamp
         let clock = Clock::get()?;
-        policy.claim_id = [policy.owner.to_bytes(), clock.unix_timestamp.to_le_bytes()].concat();
+        policy.claim_id = {
+            let mut id = [0u8; 96];
+            id[..32].copy_from_slice(&policy.owner.to_bytes());
+            id[32..40].copy_from_slice(&clock.unix_timestamp.to_le_bytes());
+            id
+        };
 
         policy.claimable_after = clock.unix_timestamp + 60; // claimable after 60 seconds
 
@@ -27,15 +32,13 @@ pub mod travel_insurance {
     }
 
     // Claiming the policy
-    pub fn claim_policy(ctx: Context<ClaimPolicy>, claim_id: Vec<u8>) -> Result<()> {
+    pub fn claim_policy(ctx: Context<ClaimPolicy>, claim_id: [u8; 96]) -> Result<()> {
         let policy = &mut ctx.accounts.policy;
-
+        let clock = Clock::get()?;
         // ensure the provided claim_id matches the policy's claim_id
         if claim_id != policy.claim_id {
             return Err(ErrorCode::InvalidClaimId.into());
         }
-
-        let clock = Clock::get()?;
 
         if policy.is_claimed {
             return Err(ErrorCode::AlreadyClaimed.into());
@@ -78,7 +81,7 @@ pub mod travel_insurance {
 
 #[derive(Accounts)]
 pub struct PurchasePolicy<'info> {
-    #[account(init, payer = user, space = 8 + 8 + 64 + 32 + 1 + 8 + 32)] // update space to accommodate claim_id
+    #[account(init, payer = user, space = 8 + 8 + 64 + 96 + 1 + 8)] // update space to accommodate claim_id
     pub policy: Account<'info, Policy>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -101,7 +104,7 @@ pub struct Policy {
     pub owner: Pubkey,
     pub is_claimed: bool,
     pub claimable_after: i64,
-    pub claim_id: Vec<u8>, // Store claim_id as a variable-length vector of bytes
+    pub claim_id: [u8; 96], // Fixed-size array for claim_id
 }
 
 #[error_code]

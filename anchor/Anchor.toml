@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.localnet]
-travel_insurance = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+travel_insurance = "AxwofCewZLxn7TJPX1KQv8FA6XEqanC9WwC2q35TnYLx"
 
 [registry]
 url = "https://anchor.projectserum.com"
