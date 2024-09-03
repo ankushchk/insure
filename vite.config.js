@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { Buffer } from "buffer";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,7 +10,8 @@ export default defineConfig({
     },
   },
   define: {
-    global: {},
-    Buffer: `window.Buffer || ${Buffer.toString()}`,
+    global: "window",
+    "process.env": {},
+    Buffer: "window.Buffer",
   },
 });
